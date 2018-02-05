@@ -335,10 +335,7 @@ public class ProxyController {
     private void onStartRadioCapabilityResponse(Message msg) {
         synchronized (mSetRadioAccessFamilyStatus) {
             AsyncResult ar = (AsyncResult)msg.obj;
-            // Abort here only in Single SIM case, in Multi SIM cases
-            // send FINISH with failure so that below layers can do
-            // fall back to proper states.
-            if ((TelephonyManager.getDefault().getPhoneCount() == 1) && (ar.exception != null)) {
+            if (ar.exception != null) {
                 // just abort now.  They didn't take our start so we don't have to revert
                 logd("onStartRadioCapabilityResponse got exception=" + ar.exception);
                 mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
@@ -473,7 +470,7 @@ public class ProxyController {
      */
     void onFinishRadioCapabilityResponse(Message msg) {
         RadioCapability rc = (RadioCapability) ((AsyncResult) msg.obj).result;
-        if ((rc != null) && (rc.getSession() != mRadioCapabilitySessionId)) {
+        if ((rc == null) || (rc.getSession() != mRadioCapabilitySessionId)) {
             logd("onFinishRadioCapabilityResponse: Ignore session=" + mRadioCapabilitySessionId
                     + " rc=" + rc);
             return;
@@ -504,13 +501,10 @@ public class ProxyController {
 
             // Increment the sessionId as we are completing the transaction below
             // so we don't want it completed when the FINISH phase is done.
-            mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
-
-            // Reset the status counter as existing session failed
-            mRadioAccessFamilyStatusCounter = 0;
+            int uniqueDifferentId = mUniqueIdGenerator.getAndIncrement();
             // send FINISH request with fail status and then uniqueDifferentId
             mTransactionFailed = true;
-            issueFinish(mRadioCapabilitySessionId);
+            issueFinish(uniqueDifferentId);
         }
     }
 
@@ -525,10 +519,8 @@ public class ProxyController {
                         i,
                         sessionId,
                         RadioCapability.RC_PHASE_FINISH,
-                        (mTransactionFailed ? mOldRadioAccessFamily[i] :
-                        mNewRadioAccessFamily[i]),
-                        (mTransactionFailed ? mCurrentLogicalModemIds[i] :
-                        mNewLogicalModemIds[i]),
+                        mOldRadioAccessFamily[i],
+                        mCurrentLogicalModemIds[i],
                         (mTransactionFailed ? RadioCapability.RC_STATUS_FAIL :
                         RadioCapability.RC_STATUS_SUCCESS),
                         EVENT_FINISH_RC_RESPONSE);
@@ -656,90 +648,6 @@ public class ProxyController {
         }
         return modemUuid;
     }
-
-    //VENDOR_EDIT flexmap for eu version
-    /**@hide*/
-    public boolean euSetRadioCapability(RadioAccessFamily[] rafs) {
-            if (rafs.length != mPhones.length) {
-                throw new RuntimeException("Length of input rafs must equal to total phone count");
-            }
-            // Check if there is any ongoing transaction and throw an exception if there
-            // is one as this is a programming error.
-            synchronized (mSetRadioAccessFamilyStatus) {
-                for (int i = 0; i < mPhones.length; i++) {
-                    if (mSetRadioAccessFamilyStatus[i] != SET_RC_STATUS_IDLE) {
-                        // TODO: The right behaviour is to cancel previous request and send this.
-                        loge("euSetRadioCapability: Phone[" + i + "] is not idle. Rejecting request.");
-                        return false;
-                    }
-                }
-            }
-
-            // Proceed with flex map only if both phones have valid RAF/modemUuid values.
-            // Sometimes due to phone object switch existing phone RAF values disposed which can
-            // cause both phoens to link same modemUuid.
-            for (int i = 0; i < mPhones.length; i++) {
-                int raf = mPhones[i].getRadioAccessFamily();
-                String modemUuid = mPhones[i].getModemUuId();
-                if ((raf == RadioAccessFamily.RAF_UNKNOWN) ||
-                         (modemUuid == null) || (modemUuid.length() == 0)) {
-                    logd("euSetRadioCapability: invalid RAF = " + raf + " or modemUuid = " +
-                             modemUuid + " for phone = " + i);
-                    return false;
-                }
-            }
-
-            // Clear to be sure we're in the initial state
-            clearTransaction();
-
-            // Keep a wake lock until we finish radio capability changed
-            mWakeLock.acquire();
-
-            return euDoSetRadioCapabilities(rafs);
-        }
-
-    private boolean euDoSetRadioCapabilities(RadioAccessFamily[] rafs) {
-        mRadioCapabilitySessionId = mUniqueIdGenerator.getAndIncrement();
-
-        // Start timer to make sure all phones respond within a specific time interval.
-        // Will send FINISH if a timeout occurs.
-        Message msg = mHandler.obtainMessage(EVENT_TIMEOUT, mRadioCapabilitySessionId, 0);
-        mHandler.sendMessageDelayed(msg, SET_RC_TIMEOUT_WAITING_MSEC);
-
-        synchronized (mSetRadioAccessFamilyStatus) {
-            logd("euDoSetRadioCapabilities: new request session id=" + mRadioCapabilitySessionId);
-            resetRadioAccessFamilyStatusCounter();
-            for (int i = 0; i < rafs.length; i++) {
-                int phoneId = rafs[i].getPhoneId();
-                logd("euDoSetRadioCapabilities: phoneId=" + phoneId + " status=STARTING");
-                mSetRadioAccessFamilyStatus[phoneId] = SET_RC_STATUS_STARTING;
-                mOldRadioAccessFamily[phoneId] = mPhones[phoneId].getRadioAccessFamily();
-                int requestedRaf = rafs[i].getRadioAccessFamily();
-
-                mNewRadioAccessFamily[phoneId] = requestedRaf;
-
-                mCurrentLogicalModemIds[phoneId] = mPhones[phoneId].getModemUuId();
-                // get the logical mode corresponds to new raf requested and pass the
-                // swap the sub info
-                mNewLogicalModemIds[1-phoneId] = mPhones[phoneId].getModemUuId();
-                logd("euDoSetRadioCapabilities: mOldRadioAccessFamily[" + phoneId + "]="
-                        + mOldRadioAccessFamily[phoneId]);
-                logd("euDoSetRadioCapabilities: mNewRadioAccessFamily[" + phoneId + "]="
-                        + mNewRadioAccessFamily[phoneId]);
-                sendRadioCapabilityRequest(
-                        phoneId,
-                        mRadioCapabilitySessionId,
-                        RadioCapability.RC_PHASE_START,
-                        mOldRadioAccessFamily[phoneId],
-                        mCurrentLogicalModemIds[phoneId],
-                        RadioCapability.RC_STATUS_NONE,
-                        EVENT_START_RC_RESPONSE);
-            }
-        }
-
-        return true;
-    }
-    //VENDOR_EDIT end
 
     private void logd(String string) {
         Rlog.d(LOG_TAG, string);

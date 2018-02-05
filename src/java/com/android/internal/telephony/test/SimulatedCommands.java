@@ -132,7 +132,6 @@ public class SimulatedCommands extends BaseCommands
 
     private boolean mDcSuccess = true;
     private DataCallResponse mDcResponse;
-    private String smscAddress;
 
     //***** Constructor
     public
@@ -1011,7 +1010,6 @@ public class SimulatedCommands extends BaseCommands
      */
     @Override
     public void startDtmf(char c, Message result) {
-        SimulatedCommandsVerifier.getInstance().startDtmf(c, result);
         resultSuccess(result, null);
     }
 
@@ -1157,15 +1155,12 @@ public class SimulatedCommands extends BaseCommands
 
     @Override
     public void getSmscAddress(Message result) {
-        resultSuccess(result, smscAddress);
-        SimulatedCommandsVerifier.getInstance().getSmscAddress(result);
+        unimplemented(result);
     }
 
     @Override
     public void setSmscAddress(String address, Message result) {
-        smscAddress = address;
-        resultSuccess(result, null);
-        SimulatedCommandsVerifier.getInstance().setSmscAddress(address, result);
+        unimplemented(result);
     }
 
     @Override
@@ -1779,8 +1774,8 @@ public class SimulatedCommands extends BaseCommands
         Rlog.i(LOG_TAG, "[SimCmd] supplyIccPinForApp: pin failed!");
         CommandException ex = new CommandException(
                 CommandException.Error.PASSWORD_INCORRECT);
-        resultFail(response, new Integer(
-                (--mPin1attemptsRemaining < 0) ? 0 : mPin1attemptsRemaining), ex);
+        resultFail(response, new int[]{
+                (--mPin1attemptsRemaining < 0) ? 0 : mPin1attemptsRemaining}, ex);
     }
 
     @Override
@@ -2173,10 +2168,5 @@ public class SimulatedCommands extends BaseCommands
     public void setOnRestrictedStateChanged(Handler h, int what, Object obj) {
         super.setOnRestrictedStateChanged(h, what, obj);
         SimulatedCommandsVerifier.getInstance().setOnRestrictedStateChanged(h, what, obj);
-    }
-
-   @Override
-    public void getAtr(Message response) {
-        unimplemented(response);
     }
 }

@@ -80,7 +80,8 @@ public class RatRatcheter {
                 newSS.getRilVoiceRadioTechnology());
         int newDataRat = ratchetRat(oldSS.getRilDataRadioTechnology(),
                 newSS.getRilDataRadioTechnology());
-        boolean newUsingCA = newSS.isUsingCarrierAggregation();
+        boolean newUsingCA = oldSS.isUsingCarrierAggregation() ||
+                newSS.isUsingCarrierAggregation();
 
         newSS.setRilVoiceRadioTechnology(newVoiceRat);
         newSS.setRilDataRadioTechnology(newDataRat);

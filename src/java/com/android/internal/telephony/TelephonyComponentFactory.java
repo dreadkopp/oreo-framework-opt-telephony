@@ -24,6 +24,7 @@ import android.os.Looper;
 import android.os.ServiceManager;
 import android.telephony.Rlog;
 
+import com.android.internal.os.BackgroundThread;
 import com.android.internal.telephony.cdma.CdmaSubscriptionSourceManager;
 import com.android.internal.telephony.cdma.EriManager;
 import com.android.internal.telephony.dataconnection.DcTracker;
@@ -31,7 +32,6 @@ import com.android.internal.telephony.imsphone.ImsExternalCallTracker;
 import com.android.internal.telephony.imsphone.ImsPhone;
 import com.android.internal.telephony.imsphone.ImsPhoneCallTracker;
 import com.android.internal.telephony.uicc.IccCardProxy;
-import com.android.internal.os.BackgroundThread;
 
 import dalvik.system.PathClassLoader;
 
@@ -52,20 +52,17 @@ public class TelephonyComponentFactory {
             String fullClsName = "com.qualcomm.qti.internal.telephony.QtiTelephonyComponentFactory";
             String libPath = "/system/framework/qti-telephony-common.jar";
 
-            PathClassLoader classLoader = new PathClassLoader(libPath,
-                    ClassLoader.getSystemClassLoader());
-            Class<?> cls = null;
             try {
-                cls = Class.forName(fullClsName, false, classLoader);
+                PathClassLoader classLoader = new PathClassLoader(libPath,
+                        ClassLoader.getSystemClassLoader());
+                Class<?> cls = Class.forName(fullClsName, false, classLoader);
                 Constructor custMethod = cls.getConstructor();
                 sInstance = (TelephonyComponentFactory) custMethod.newInstance();
                 Rlog.i(LOG_TAG, "Using QtiTelephonyComponentFactory");
-            } catch (NoClassDefFoundError e) {
-                //e.printStackTrace();
+            } catch (NoClassDefFoundError | ClassNotFoundException e) {
                 Rlog.e(LOG_TAG, "QtiTelephonyComponentFactory not used - fallback to default");
                 sInstance = new TelephonyComponentFactory();
             } catch (Exception  e) {
-                e.printStackTrace();
                 Rlog.e(LOG_TAG, "Error loading QtiTelephonyComponentFactory - fallback to default");
                 sInstance = new TelephonyComponentFactory();
             }
@@ -241,11 +238,4 @@ public class TelephonyComponentFactory {
                 context, subscriptionController, looper, tr, cis,
                 phones);
     }
-
-    public RIL makeRIL(Context context, int preferredNetworkType,
-            int cdmaSubscription, Integer instanceId) {
-        Rlog.d(LOG_TAG, "makeRIL");
-        return new RIL(context, preferredNetworkType, cdmaSubscription, instanceId);
-    }
-
 }

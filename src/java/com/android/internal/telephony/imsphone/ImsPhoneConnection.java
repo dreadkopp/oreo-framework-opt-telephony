@@ -27,7 +27,6 @@ import android.os.PersistableBundle;
 import android.os.PowerManager;
 import android.os.Registrant;
 import android.os.SystemClock;
-import android.telecom.Call;
 import android.telecom.VideoProfile;
 import android.telephony.CarrierConfigManager;
 import android.telephony.DisconnectCause;
@@ -45,7 +44,6 @@ import com.android.internal.telephony.CallStateException;
 import com.android.internal.telephony.Connection;
 import com.android.internal.telephony.Phone;
 import com.android.internal.telephony.PhoneConstants;
-import com.android.internal.telephony.TelephonyProperties;
 import com.android.internal.telephony.UUSInfo;
 
 import java.util.Objects;
@@ -210,37 +208,17 @@ public class ImsPhoneConnection extends Connection implements
     /** This is an MO call, created when dialing */
     public ImsPhoneConnection(Phone phone, String dialString, ImsPhoneCallTracker ct,
             ImsPhoneCall parent, boolean isEmergency) {
-        this(phone, dialString, ct, parent, isEmergency, null);
-    }
-
-    /** This is an MO call, created when dialing */
-    public ImsPhoneConnection(Phone phone, String dialString, ImsPhoneCallTracker ct,
-            ImsPhoneCall parent, boolean isEmergency, Bundle extras) {
         super(PhoneConstants.PHONE_TYPE_IMS);
         createWakeLock(phone.getContext());
         acquireWakeLock();
-        boolean isConferenceUri = false;
-        boolean isSkipSchemaParsing = false;
-
-        if (extras != null) {
-            isConferenceUri = extras.getBoolean(
-                    TelephonyProperties.EXTRA_DIAL_CONFERENCE_URI, false);
-            isSkipSchemaParsing = extras.getBoolean(
-                    TelephonyProperties.EXTRA_SKIP_SCHEMA_PARSING, false);
-        }
 
         mOwner = ct;
         mHandler = new MyHandler(mOwner.getLooper());
 
         mDialString = dialString;
 
-        if (isConferenceUri || isSkipSchemaParsing) {
-            mAddress = dialString;
-            mPostDialString = "";
-        } else {
-            mAddress = PhoneNumberUtils.extractNetworkPortionAlt(dialString);
-            mPostDialString = PhoneNumberUtils.extractPostDialPortion(dialString);
-        }
+        mAddress = PhoneNumberUtils.extractNetworkPortionAlt(dialString);
+        mPostDialString = PhoneNumberUtils.extractPostDialPortion(dialString);
 
         //mIndex = -1;
 
@@ -695,7 +673,6 @@ public class ImsPhoneConnection extends Connection implements
      *     changed, and {@code false} otherwise.
      */
     public boolean update(ImsCall imsCall, ImsPhoneCall.State state) {
-        updateCallStateToVideoCallProvider(state);
         if (state == ImsPhoneCall.State.ACTIVE) {
             // If the state of the call is active, but there is a pending request to the RIL to hold
             // the call, we will skip this update.  This is really a signalling delay or failure
@@ -1233,27 +1210,6 @@ public class ImsPhoneConnection extends Connection implements
         return mImsVideoCallProviderWrapper.wasVideoPausedFromSource(source);
     }
 
-    private void updateCallStateToVideoCallProvider(ImsPhoneCall.State state) {
-        if (mImsVideoCallProviderWrapper == null) {
-            return;
-        }
-        mImsVideoCallProviderWrapper.onCallStateChanged(toTelecomCallState(state));
-    }
-
-    private static int toTelecomCallState(ImsPhoneCall.State state) {
-        switch(state) {
-            case IDLE:            return Call.STATE_NEW;
-            case ACTIVE:          return Call.STATE_ACTIVE;
-            case HOLDING:         return Call.STATE_HOLDING;
-            case DIALING:         return Call.STATE_DIALING;
-            case ALERTING:        return Call.STATE_DIALING;
-            case INCOMING:        return Call.STATE_RINGING;
-            case WAITING:         return Call.STATE_RINGING;
-            case DISCONNECTING:   return Call.STATE_DISCONNECTING;
-            case DISCONNECTED:    return Call.STATE_DISCONNECTED;
-            default:              return Call.STATE_NEW;
-        }
-    }
     /**
      * Mark the call as in the process of being merged and inform the UI of the merge start.
      */
@@ -1286,9 +1242,9 @@ public class ImsPhoneConnection extends Connection implements
         mShouldIgnoreVideoStateChanges = false;
     }
 
-    public void setVideoEnabled(boolean isVideoEnabled) {
-        mIsVideoEnabled = isVideoEnabled;
-        Rlog.i(LOG_TAG, "setVideoEnabled: mIsVideoEnabled = " + mIsVideoEnabled
+    public void handleDataEnabledChange(boolean isDataEnabled) {
+        mIsVideoEnabled = isDataEnabled;
+        Rlog.i(LOG_TAG, "handleDataEnabledChange: isDataEnabled=" + isDataEnabled
                 + "; updating local video availability.");
         updateMediaCapabilities(getImsCall());
         if (mImsVideoCallProviderWrapper != null) {

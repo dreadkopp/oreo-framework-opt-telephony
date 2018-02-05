@@ -52,7 +52,6 @@ public class CommandException extends RuntimeException {
         USSD_MODIFIED_TO_SS,
         USSD_MODIFIED_TO_USSD,
         SS_MODIFIED_TO_DIAL,
-        SS_MODIFIED_TO_DIAL_VIDEO,
         SS_MODIFIED_TO_USSD,
         SS_MODIFIED_TO_SS,
         SIM_ALREADY_POWERED_OFF,

@@ -20,7 +20,6 @@ import static com.android.internal.telephony.TelephonyTestUtils.waitForMs;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.anyBoolean;
@@ -51,7 +50,6 @@ import com.android.internal.telephony.cdma.sms.SmsEnvelope;
 import com.android.internal.util.HexDump;
 import com.android.internal.util.IState;
 import com.android.internal.util.StateMachine;
-import com.android.internal.util.HexDump;
 
 import org.junit.After;
 import org.junit.Before;
@@ -189,7 +187,7 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         doReturn(SmsEnvelope.TELESERVICE_WMT).when(mCdmaSmsMessage).getTeleService();
         mCdmaInboundSmsHandler.sendMessage(InboundSmsHandler.EVENT_NEW_SMS,
                 new AsyncResult(null, mSmsMessage, null));
-        waitForMs(200);
+        waitForMs(100);
 
         ArgumentCaptor<Intent> intentArgumentCaptor = ArgumentCaptor.forClass(Intent.class);
         verify(mContext).sendBroadcast(intentArgumentCaptor.capture());
@@ -228,22 +226,4 @@ public class CdmaInboundSmsHandlerTest extends TelephonyTest {
         verify(mContext, never()).sendBroadcast(any(Intent.class));
         assertEquals("IdleState", getCurrentState().getName());
     }
-
-/*
-    @Test
-    @MediumTest
-    public void testCtWdpParsing() {
-        transitionFromStartupToIdle();
-        String pdu = "000000000000FDEA00000000000000000100000000000000000000001900031" +
-                "040900112488ea794e074d69e1b7392c270326cde9e98";
-        SmsMessage msg = SmsMessage.createFromPdu(HexDump.hexStringToByteArray(pdu));
-        mSmsMessage.mWrappedSmsMessage = msg;
-        mCdmaInboundSmsHandler.sendMessage(InboundSmsHandler.EVENT_NEW_SMS,
-                new AsyncResult(null, mSmsMessage, null));
-        waitForMs(200);
-        assertEquals(msg.getTeleService(), SmsEnvelope.TELESERVICE_CT_WAP);
-        assertEquals("Test standard SMS", msg.getMessageBody());
-        assertNotNull(msg.getUserData());
-    }
-*/
 }

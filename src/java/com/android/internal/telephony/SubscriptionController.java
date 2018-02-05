@@ -1502,8 +1502,7 @@ public class SubscriptionController extends ISub.Stub {
 
     }
 
-        protected int[] getDummySubIds(int slotIndex){
-
+    protected int[] getDummySubIds(int slotIndex) {
         // FIXME: Remove notion of Dummy SUBSCRIPTION_ID.
         // I tested this returning null as no one appears to care,
         // but no connection came up on sprout with two sims.

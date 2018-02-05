@@ -146,7 +146,7 @@ public class UiccCardApplication {
             }
 
             if (mPersoSubState != oldPersoSubState &&
-                    isPersoLocked()) {
+                    mPersoSubState == PersoSubState.PERSOSUBSTATE_SIM_NETWORK) {
                 notifyNetworkLockedRegistrantsIfNeeded(null);
             }
 
@@ -350,11 +350,15 @@ public class UiccCardApplication {
      * Parse the error response to obtain number of attempts remaining
      */
     private int parsePinPukErrorResult(AsyncResult ar) {
-        Integer result =  (Integer) ar.result;
+        int[] result = (int[]) ar.result;
         if (result == null) {
             return -1;
         } else {
-            int attemptsRemaining = result;
+            int length = result.length;
+            int attemptsRemaining = -1;
+            if (length > 0) {
+                attemptsRemaining = result[0];
+            }
             log("parsePinPukErrorResult: attemptsRemaining=" + attemptsRemaining);
             return attemptsRemaining;
         }
@@ -380,7 +384,7 @@ public class UiccCardApplication {
                     // request has completed. ar.userObj is the response Message
                     int attemptsRemaining = -1;
                     ar = (AsyncResult)msg.obj;
-                    if (ar.result != null) {
+                    if ((ar.exception != null) && (ar.result != null)) {
                         attemptsRemaining = parsePinPukErrorResult(ar);
                     }
                     Message response = (Message)ar.userObj;
@@ -528,14 +532,13 @@ public class UiccCardApplication {
         }
 
         if (mAppState == AppState.APPSTATE_SUBSCRIPTION_PERSO &&
-                isPersoLocked()) {
-            AsyncResult ar = new AsyncResult(null, mPersoSubState.ordinal(), null);
+                mPersoSubState == PersoSubState.PERSOSUBSTATE_SIM_NETWORK) {
             if (r == null) {
                 if (DBG) log("Notifying registrants: NETWORK_LOCKED");
-                mNetworkLockedRegistrants.notifyRegistrants(ar);
+                mNetworkLockedRegistrants.notifyRegistrants();
             } else {
                 if (DBG) log("Notifying 1 registrant: NETWORK_LOCED");
-                r.notifyRegistrant(ar);
+                r.notifyRegistrant(new AsyncResult(null, null, null));
             }
         }
     }
@@ -619,17 +622,6 @@ public class UiccCardApplication {
     public IccRecords getIccRecords() {
         synchronized (mLock) {
             return mIccRecords;
-        }
-    }
-
-    public boolean isPersoLocked() {
-        switch (mPersoSubState) {
-            case PERSOSUBSTATE_UNKNOWN:
-            case PERSOSUBSTATE_IN_PROGRESS:
-            case PERSOSUBSTATE_READY:
-                return false;
-            default:
-                return true;
         }
     }
 
